@@ -4,7 +4,7 @@ import numpy as np
 import os
 from ultralytics import YOLO
 from insightface.app import FaceAnalysis
-from openpyxl import Workbook
+from openpyxl import Workbook, load_workbook
 from datetime import datetime
 model = YOLO("yolov8n.pt")
 app = FaceAnalysis(name="buffalo_l")
@@ -29,23 +29,61 @@ print("Known Faces Loaded:", known_names)
 
 cap = cv2.VideoCapture(0)
 def save_attendance():
+    # Read the master student list
+    wb_students = load_workbook("students.xlsx")
+    ws_students = wb_students.active
+
+    # Create a new attendance workbook
     wb = Workbook()
     ws = wb.active
 
-   # ws.append(["Name", "Date", "Time", "Status"])
+    # Header
+    ws.append([
+        "Roll",
+        "Name",
+        "Department",
+        "Semester",
+        "Date",
+        "Time",
+        "Status"
+    ])
 
     now = datetime.now()
 
-    for student in present_students:
+    # Compare every student with recognized faces
+    for row in ws_students.iter_rows(min_row=2, values_only=True):
+        roll = row[0]
+        name = row[1]
+        department = row[2]
+        semester = row[3]
+
+        if name in present_students:
+            status = "Present"
+        else:
+            status = "Absent"
+
         ws.append([
-            student,
+            roll,
+            name,
+            department,
+            semester,
             now.strftime("%Y-%m-%d"),
             now.strftime("%H:%M:%S"),
-            "Present"
+            status
         ])
 
     wb.save("attendance.xlsx")
     print("Attendance saved to attendance.xlsx")
+
+    # Create Attendance folder if it doesn't exist
+    os.makedirs("Attendance", exist_ok=True)
+
+    # File name based on today's date
+    filename = f"Attendance/Attendance_{now.strftime('%Y-%m-%d')}.xlsx"
+
+# Save the workbook
+    wb.save(filename)
+    print(f"Attendance saved to {filename}")
 while True:
     ret, frame = cap.read()
     frame = cv2.flip(frame, 1)
